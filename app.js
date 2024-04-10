@@ -2,60 +2,151 @@ const express = require("express");
 const app = express();
 const port = process.env.PORT || 3001;
 
-app.get("/", (req, res) => res.type('html').send(html));
+const express = require("express");
+const cors = require("cors");
+const { spawnSync } = require('child_process');
 
-const server = app.listen(port, () => console.log(`Example app listening on port ${port}!`));
+app.use(cors());
+app.use(express.json());
 
-server.keepAliveTimeout = 120 * 1000;
-server.headersTimeout = 120 * 1000;
+function compileCpp(code, input) {
+  try {
+    console.log('Compiling C++ code...');
+    console.log('Code:', code);
+    console.log('Input:', input);
 
-const html = `
-<!DOCTYPE html>
-<html>
-  <head>
-    <title>Hello from Render!</title>
-    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
-    <script>
-      setTimeout(() => {
-        confetti({
-          particleCount: 100,
-          spread: 70,
-          origin: { y: 0.6 },
-          disableForReducedMotion: true
-        });
-      }, 500);
-    </script>
-    <style>
-      @import url("https://p.typekit.net/p.css?s=1&k=vnd5zic&ht=tk&f=39475.39476.39477.39478.39479.39480.39481.39482&a=18673890&app=typekit&e=css");
-      @font-face {
-        font-family: "neo-sans";
-        src: url("https://use.typekit.net/af/00ac0a/00000000000000003b9b2033/27/l?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff2"), url("https://use.typekit.net/af/00ac0a/00000000000000003b9b2033/27/d?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("woff"), url("https://use.typekit.net/af/00ac0a/00000000000000003b9b2033/27/a?primer=7cdcb44be4a7db8877ffa5c0007b8dd865b3bbc383831fe2ea177f62257a9191&fvd=n7&v=3") format("opentype");
-        font-style: normal;
-        font-weight: 700;
+    const compileResult = spawnSync(
+      'g++',
+      ['-x', 'c++', '-o', 'myprogram', '-'],
+      {
+        input: code,
+        encoding: 'utf-8',
       }
-      html {
-        font-family: neo-sans;
-        font-weight: 700;
-        font-size: calc(62rem / 16);
+    );
+
+    if (compileResult.status !== 0) {
+      throw new Error('Compilation error');
+    }
+
+    console.log('C++ code compiled successfully');
+
+    const filePath = './myprogram';
+    const executionResult = spawnSync(filePath, {
+      input: input,
+      encoding: 'utf-8',
+    });
+
+    if (executionResult.error) {
+      throw new Error('Execution error');
+    }
+
+    console.log('Program executed successfully');
+
+    return { programOutput: executionResult.stdout };
+  } catch (error) {
+    console.error('Error:', error);
+    return { error: error.message };
+  }
+}
+
+function compileJS(code, input) {
+  try {
+    console.log('Executing JavaScript code...');
+    console.log('Code:', code);
+    console.log('Input:', input);
+
+    const jsResult = spawnSync('node', ['-e', code], {
+      input: input,
+      encoding: 'utf-8',
+    });
+
+    console.log('JavaScript code executed successfully');
+
+    return { programOutput: jsResult.stdout };
+  } catch (error) {
+    console.error('Error:', error);
+    return { error: error.message };
+  }
+}
+
+function compileC(code, input) {
+  try {
+    console.log('Compiling C code...');
+    console.log('Code:', code);
+    console.log('Input:', input);
+
+    const compileResult = spawnSync(
+      'gcc',
+      ['-x', 'c', '-o', 'myprogram', '-'],
+      {
+        input: code,
+        encoding: 'utf-8',
       }
-      body {
-        background: white;
-      }
-      section {
-        border-radius: 1em;
-        padding: 1em;
-        position: absolute;
-        top: 50%;
-        left: 50%;
-        margin-right: -50%;
-        transform: translate(-50%, -50%);
-      }
-    </style>
-  </head>
-  <body>
-    <section>
-      Hello from Render!
-    </section>
-  </body>
-</html>
-`
+    );
+
+    if (compileResult.status !== 0) {
+      throw new Error('Compilation error');
+    }
+
+    console.log('C code compiled successfully');
+
+    const filePath = './myprogram';
+    const executionResult = spawnSync(filePath, {
+      input: input,
+      encoding: 'utf-8',
+    });
+
+    if (executionResult.error) {
+      throw new Error('Execution error');
+    }
+
+    console.log('Program executed successfully');
+
+    return { programOutput: executionResult.stdout };
+  } catch (error) {
+    console.error('Error:', error);
+    return { error: error.message };
+  }
+}
+
+app.post("/compile", async (req, res) => {
+    try {
+        // Getting the required data from the request
+        let code = req.body.code;
+        let language = req.body.language;
+        let input = req.body.input;
+
+        // Compile code based on the selected language
+        let compileResult;
+        switch (language) {
+            case 'cpp':
+                compileResult = compileCpp(code, input);
+                break;
+            
+            case 'c':
+                compileResult = compileC(code, input);
+                break;
+            case 'javascript':
+                compileResult = compileJS(code, input); // Add this case for JavaScript
+                break;
+            default:
+                compileResult = { error: 'Unsupported language' };
+                break;
+        }
+
+        // Handle compilation result
+        if (compileResult.error) {
+            throw new Error(compileResult.error);
+        } else {
+            res.status(200).json(compileResult);
+        }
+    } catch (error) {
+        // Handle error
+        console.error("Error during code compilation:", error.message);
+        res.status(500).json({ error: "Error during code compilation" });
+    }
+});
+
+app.listen(port, () => {
+    console.log(`Server listening on port ${port}`);
+});
