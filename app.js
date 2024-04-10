@@ -2,7 +2,7 @@ const express = require("express");
 const app = express();
 const port = process.env.PORT || 3001;
 
-const express = require("express");
+
 const cors = require("cors");
 const { spawnSync } = require('child_process');
 
